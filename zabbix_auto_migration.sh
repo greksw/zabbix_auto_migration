@@ -17,17 +17,18 @@ NGINX_PRIVATE_KEY_DIR="/etc/ssl/private"
 rpm -Uvh https://repo.zabbix.com/zabbix/7.0/alma/9/x86_64/zabbix-release-latest-7.0.el9.noarch.rpm
 dnf clean all
 dnf makecache
-dnf remove zabbix-release
+dnf remove zabbix-release -y
 
 # Устанавливаем Zabbix, MySQL и Nginx на новом сервере
 echo "Installing Zabbix, MySQL, and Nginx on the new server..."
 dnf update -y
-dnf install zabbix-server-mysql zabbix-web-mysql zabbix-nginx-conf zabbix-sql-scripts zabbix-selinux-policy zabbix-agent
+dnf install -y mariadb-server
+dnf install -y zabbix-server-mysql zabbix-web-mysql zabbix-nginx-conf zabbix-sql-scripts zabbix-selinux-policy zabbix-agent
 
 # Установим и настроим MySQL
 echo "Setting up MySQL..."
-systemctl start mysql
-systemctl enable mysql
+systemctl start mariadb
+systemctl enable mariadb
 mysql_secure_installation
 
 # Создадим базу данных на новом сервере
