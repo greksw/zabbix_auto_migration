@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Параметры для старого и нового серверов
-OLD_SERVER_IP="old-server-ip"
+OLD_SERVER_IP="192.168.2.31"  # IP старого сервера
 OLD_SERVER_USER="old-server-user"
 DB_NAME="zabbix_db_name"
 DB_USER="zabbix_db_user"
 DB_PASSWORD="zabbix_db_password"
-NEW_SERVER_IP="localhost"  # Установим на новый сервер
+NEW_SERVER_IP="192.168.2.30"  # IP нового сервера
 NEW_ZABBIX_DB_NAME="zabbix_db_name"
 NEW_ZABBIX_DB_USER="zabbix_db_user"
 NEW_ZABBIX_DB_PASSWORD="zabbix_db_password"
