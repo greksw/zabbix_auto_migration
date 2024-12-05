@@ -13,6 +13,9 @@ NEW_ZABBIX_DB_PASSWORD="zabbix_db_password"
 NGINX_CERT_DIR="/etc/ssl/certs/zabbix"  # Директория для сертификатов
 NGINX_PRIVATE_KEY_DIR="/etc/ssl/private"
 
+
+echo "[epel] >> " >>  /etc/yum.repos.d/epel.repo
+echo "excludepkgs=zabbix*" >> /etc/yum.repos.d/epel.repo
 #Загрузка репозитория zabbix 7 для Almalinux
 rpm -Uvh https://repo.zabbix.com/zabbix/7.0/alma/9/x86_64/zabbix-release-latest-7.0.el9.noarch.rpm
 dnf clean all
