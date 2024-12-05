@@ -13,14 +13,16 @@ NEW_ZABBIX_DB_PASSWORD="zabbix_db_password"
 NGINX_CERT_DIR="/etc/ssl/certs/zabbix"  # Директория для сертификатов
 NGINX_PRIVATE_KEY_DIR="/etc/ssl/private"
 
-#Загрузка репозитория zabbix 7
-rpm -Uvh https://repo.zabbix.com/zabbix/7.0/rhel/9/x86_64/zabbix-release-7.0-1.el9.x86_64.rpm
+#Загрузка репозитория zabbix 7 для Almalinux
+rpm -Uvh https://repo.zabbix.com/zabbix/7.0/alma/9/x86_64/zabbix-release-latest-7.0.el9.noarch.rpm
 dnf clean all
+dnf makecache
+dnf remove zabbix-release
 
 # Устанавливаем Zabbix, MySQL и Nginx на новом сервере
 echo "Installing Zabbix, MySQL, and Nginx on the new server..."
 dnf update -y
-dnf install -y mysql-server nginx zabbix-server-mysql zabbix-web-mysql zabbix-agent
+dnf install zabbix-server-mysql zabbix-web-mysql zabbix-nginx-conf zabbix-sql-scripts zabbix-selinux-policy zabbix-agent
 
 # Установим и настроим MySQL
 echo "Setting up MySQL..."
