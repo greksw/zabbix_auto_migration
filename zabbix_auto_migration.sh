@@ -1,37 +1,83 @@
 #!/bin/bash
 
-# Устанавливаем необходимые пакеты
-echo "Installing required packages..."
-dnf install -y openssl nginx
+# Параметры для старого и нового серверов
+OLD_SERVER_IP="192.168.2.31"  # IP старого сервера
+OLD_SERVER_USER="old-server-user"
+DB_NAME="zabbix_db_name"
+DB_USER="zabbix_db_user"
+DB_PASSWORD="zabbix_db_password"
+NEW_SERVER_IP="192.168.2.30"  # IP нового сервера
+NEW_ZABBIX_DB_NAME="zabbix_db_name"
+NEW_ZABBIX_DB_USER="zabbix_db_user"
+NEW_ZABBIX_DB_PASSWORD="zabbix_db_password"
+NGINX_CERT_DIR="/etc/ssl/certs/zabbix"  # Директория для сертификатов
+NGINX_PRIVATE_KEY_DIR="/etc/ssl/private"
 
-# Настроим директории для сертификатов
-CERT_DIR="/etc/ssl"
-PRIVATE_KEY_DIR="$CERT_DIR/private"
-CERT_DIR="$CERT_DIR/certs"
-mkdir -p $PRIVATE_KEY_DIR $CERT_DIR
+# Устанавливаем Zabbix, MySQL и Nginx на новом сервере
+echo "Installing Zabbix, MySQL, and Nginx on the new server..."
+dnf update -y
+dnf install -y mysql-server nginx zabbix-server-mysql zabbix-web-mysql zabbix-agent
+
+# Установим и настроим MySQL
+echo "Setting up MySQL..."
+systemctl start mysql
+systemctl enable mysql
+mysql_secure_installation
+
+# Создадим базу данных на новом сервере
+echo "Creating Zabbix database on the new server..."
+mysql -u root -e "CREATE DATABASE $NEW_ZABBIX_DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;"
+mysql -u root -e "CREATE USER '$NEW_ZABBIX_DB_USER'@'localhost' IDENTIFIED BY '$NEW_ZABBIX_DB_PASSWORD';"
+mysql -u root -e "GRANT ALL PRIVILEGES ON $NEW_ZABBIX_DB_NAME.* TO '$NEW_ZABBIX_DB_USER'@'localhost';"
+mysql -u root -e "FLUSH PRIVILEGES;"
+
+# Экспорт базы данных Zabbix с исходного сервера
+echo "Exporting Zabbix database from the old server..."
+ssh $OLD_SERVER_USER@$OLD_SERVER_IP "mysqldump -u $DB_USER -p$DB_PASSWORD $DB_NAME > /tmp/zabbix_backup.sql"
+
+# Переносим дамп на новый сервер
+echo "Transferring the Zabbix database dump to the new server..."
+scp $OLD_SERVER_USER@$OLD_SERVER_IP:/tmp/zabbix_backup.sql /tmp/zabbix_backup.sql
+
+# Импортируем базу данных на новом сервере
+echo "Importing the Zabbix database on the new server..."
+mysql -u root $NEW_ZABBIX_DB_NAME < /tmp/zabbix_backup.sql
+
+# Настройка конфигурации Zabbix
+echo "Configuring Zabbix server configuration on the new server..."
+sed -i "s/^# DBPassword=.*/DBPassword=$NEW_ZABBIX_DB_PASSWORD/" /etc/zabbix/zabbix_server.conf
+
+# Настройка веб-конфигурации Zabbix (zabbix.conf.php)
+echo "Configuring Zabbix web interface..."
+cp /etc/zabbix/web/zabbix.conf.php /etc/zabbix/web/zabbix.conf.php.orig
+sed -i "s/^.*DBPassword.*$/    \$DB['PASSWORD'] = '$NEW_ZABBIX_DB_PASSWORD';/" /etc/zabbix/web/zabbix.conf.php
+
+# Установка самоподписного сертификата
+echo "Creating self-signed SSL certificate..."
+
+# Создадим директории для сертификатов
+mkdir -p $NGINX_CERT_DIR
+mkdir -p $NGINX_PRIVATE_KEY_DIR
 
 # Создадим приватный ключ
-echo "Creating private key..."
-openssl genpkey -algorithm RSA -out $PRIVATE_KEY_DIR/zabbix.key -aes256
+openssl genpkey -algorithm RSA -out $NGINX_PRIVATE_KEY_DIR/zabbix.key -aes256
 
 # Создадим запрос на сертификат (CSR)
-echo "Creating certificate signing request (CSR)..."
-openssl req -new -key $PRIVATE_KEY_DIR/zabbix.key -out $PRIVATE_KEY_DIR/zabbix.csr -subj "/C=US/ST=State/L=City/O=Organization/OU=IT/CN=yourdomain.com/emailAddress=youremail@example.com"
+openssl req -new -key $NGINX_PRIVATE_KEY_DIR/zabbix.key -out $NGINX_PRIVATE_KEY_DIR/zabbix.csr -subj "/C=US/ST=State/L=City/O=Organization/OU=IT/CN=yourdomain.com/emailAddress=youremail@example.com"
 
 # Создадим самоподписной сертификат
-echo "Creating self-signed certificate..."
-openssl x509 -req -days 365 -in $PRIVATE_KEY_DIR/zabbix.csr -signkey $PRIVATE_KEY_DIR/zabbix.key -out $CERT_DIR/zabbix.crt
+openssl x509 -req -days 365 -in $NGINX_PRIVATE_KEY_DIR/zabbix.csr -signkey $NGINX_PRIVATE_KEY_DIR/zabbix.key -out $NGINX_CERT_DIR/zabbix.crt
 
 # Настроим Nginx для использования SSL
-echo "Configuring Nginx to use SSL..."
+echo "Configuring Nginx for SSL..."
 NGINX_CONF="/etc/nginx/conf.d/zabbix_https.conf"
 cat <<EOF > $NGINX_CONF
 server {
     listen 443 ssl;
     server_name yourdomain.com;  # Замените на ваш домен или IP-адрес
 
-    ssl_certificate $CERT_DIR/zabbix.crt;
-    ssl_certificate_key $PRIVATE_KEY_DIR/zabbix.key;
+    ssl_certificate $NGINX_CERT_DIR/zabbix.crt;
+    ssl_certificate_key $NGINX_PRIVATE_KEY_DIR/zabbix.key;
 
     location / {
         root /usr/share/zabbix;
@@ -52,9 +98,14 @@ EOF
 echo "Restarting Nginx..."
 systemctl restart nginx
 
-# Проверим статус Nginx
-echo "Checking Nginx status..."
-systemctl status nginx
+# Перезапуск Zabbix
+echo "Restarting Zabbix server..."
+systemctl restart zabbix-server
+systemctl restart zabbix-agent
 
-echo "Self-signed SSL certificate created and Nginx configured."
-echo "You can access Zabbix via https://yourdomain.com."
+# Завершаем настройку и тестируем
+echo "Testing Zabbix installation on the new server..."
+systemctl status nginx
+systemctl status zabbix-server
+
+echo "Migration complete! You can access Zabbix via https://yourdomain.com."
