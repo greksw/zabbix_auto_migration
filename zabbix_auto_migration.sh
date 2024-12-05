@@ -16,11 +16,11 @@ NGINX_PRIVATE_KEY_DIR="/etc/ssl/private"
 
 echo "[epel] >> " >>  /etc/yum.repos.d/epel.repo
 echo "excludepkgs=zabbix*" >> /etc/yum.repos.d/epel.repo
+
 #Загрузка репозитория zabbix 7 для Almalinux
 rpm -Uvh https://repo.zabbix.com/zabbix/7.0/alma/9/x86_64/zabbix-release-latest-7.0.el9.noarch.rpm
 dnf clean all
 dnf makecache
-dnf remove zabbix-release -y
 
 # Устанавливаем Zabbix, MySQL и Nginx на новом сервере
 echo "Installing Zabbix, MySQL, and Nginx on the new server..."
