@@ -28,6 +28,9 @@ dnf update -y
 dnf install -y mariadb-server
 dnf install -y zabbix-server-mysql zabbix-web-mysql zabbix-nginx-conf zabbix-sql-scripts zabbix-selinux-policy zabbix-agent
 
+#Установка локалей
+sudo dnf install -y glibc-langpack-en glibc-langpack-ru
+
 # Установим и настроим MySQL
 echo "Setting up MySQL..."
 systemctl start mariadb
@@ -103,6 +106,16 @@ server {
     }
 }
 EOF
+
+# Разрешение сетевых соединений для Nginx
+# SELinux может блокировать сетевые подключения для Nginx. Выполните команды для разрешения:
+sudo setsebool -P httpd_can_network_connect 1
+sudo setsebool -P httpd_can_network_connect_db 1
+
+#Открытие портов в файрволе
+#Открытие 443 порта
+sudo firewall-cmd --add-service=https --permanent
+sudo firewall-cmd --reload
 
 # Перезапустим Nginx, чтобы применить изменения
 echo "Restarting Nginx..."
