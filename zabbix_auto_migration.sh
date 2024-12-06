@@ -31,6 +31,12 @@ dnf install -y zabbix-server-mysql zabbix-web-mysql zabbix-nginx-conf zabbix-sql
 #Установка локалей
 sudo dnf install -y glibc-langpack-en glibc-langpack-ru
 
+#Установка Zabbix-agent
+dnf install -y zabbix-agent
+systemctl start zabbix-agent
+systemctl enable zabbix-agent
+
+
 # Установим и настроим MySQL
 echo "Setting up MySQL..."
 systemctl start mariadb
