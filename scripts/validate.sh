@@ -3,7 +3,7 @@ set -Eeuo pipefail
 umask 027
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=../lib/common.sh
+# shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/../lib/common.sh"
 CONFIG_FILE=${1:-/etc/zabbix-migration.conf}
 
