@@ -1,0 +1,35 @@
+# Example configuration for zabbix-migration-toolkit.
+# Copy to /etc/zabbix-migration.conf and adjust for your environment.
+
+# Zabbix target branch. 7.0 is LTS; 7.4 may be selected explicitly.
+ZABBIX_VERSION="7.0"
+
+# Database settings.
+DB_NAME="zabbix"
+DB_USER="zabbix"
+DB_HOST="localhost"
+
+# The Zabbix DB password must be stored in a root-only file containing only
+# the password, for example /etc/zabbix-migration/db-password (mode 0600).
+DB_PASSWORD_FILE="/etc/zabbix-migration/db-password"
+
+# Root/admin MariaDB client credentials for target-side database operations.
+# Use a [client] section and mode 0600. Do not commit this file.
+DB_ADMIN_CNF="/root/.my.cnf"
+
+# Source-side credentials used by export-db.sh. This file should contain a
+# [client] section with user/password/host as appropriate, mode 0600.
+SOURCE_DB_CNF="/root/.my-zabbix-source.cnf"
+
+# Where migration artifacts are written/read.
+BACKUP_DIR="/var/backups/zabbix-migration"
+
+# Frontend/TLS settings.
+ZABBIX_SERVER_NAME="zabbix.example.net"
+
+# existing    -> require operator-provided certificate/key paths
+# self-signed -> generate a local certificate for lab/internal validation
+TLS_MODE="existing"
+TLS_CERT_FILE="/etc/pki/tls/certs/zabbix.crt"
+TLS_KEY_FILE="/etc/pki/tls/private/zabbix.key"
+SELF_SIGNED_DAYS="365"
