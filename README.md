@@ -221,9 +221,9 @@ GitHub Actions runs Bash syntax checks and ShellCheck against the toolkit script
 
 CI is static validation only. Before production use, perform an end-to-end migration rehearsal using a disposable clone of the source database and target VM.
 
-## Planned repository cleanup
+## Repository history
 
-After review, this repository is intended to be renamed to **`zabbix-migration-toolkit`**. The separate `auto_cert_zabbix` repository can then be archived because its useful TLS concept is incorporated here in a safer form.
+This repository consolidates the migration workflow and TLS handling that previously lived in separate experimental scripts. The historical `auto_cert_zabbix` repository has been retired after that consolidation.
 
 ## License
 
