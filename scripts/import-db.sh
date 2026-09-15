@@ -17,6 +17,7 @@ main() {
     require_secret_file "${DB_PASSWORD_FILE}"
     require_command sha256sum
     require_command gzip
+    require_command python3
 
     local mysql_cmd dump_file db_password table_count
     mysql_cmd=$(mysql_client)
@@ -32,7 +33,7 @@ main() {
     [[ ${table_count} == 0 ]] || fatal "Target database '${DB_NAME}' is not empty. Refusing import."
 
     log "Creating target database and user '${DB_USER}'."
-    "${mysql_cmd}" --defaults-extra-file="${DB_ADMIN_CNF}" <<SQL
+    DB_PASSWORD="${db_password}" "${mysql_cmd}" --defaults-extra-file="${DB_ADMIN_CNF}" <<SQL
 CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${db_password//\'/\'\'}';
 ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${db_password//\'/\'\'}';
@@ -47,22 +48,30 @@ SQL
         -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${DB_NAME}';")
     (( table_count > 0 )) || fatal 'Import completed without creating tables.'
 
-    install -d -m 0750 /etc/zabbix
-    if grep -q '^DBName=' /etc/zabbix/zabbix_server.conf; then
-        sed -i "s/^DBName=.*/DBName=${DB_NAME}/" /etc/zabbix/zabbix_server.conf
-    else
-        printf '\nDBName=%s\n' "${DB_NAME}" >> /etc/zabbix/zabbix_server.conf
-    fi
-    if grep -q '^DBUser=' /etc/zabbix/zabbix_server.conf; then
-        sed -i "s/^DBUser=.*/DBUser=${DB_USER}/" /etc/zabbix/zabbix_server.conf
-    else
-        printf 'DBUser=%s\n' "${DB_USER}" >> /etc/zabbix/zabbix_server.conf
-    fi
-    if grep -q '^DBPassword=' /etc/zabbix/zabbix_server.conf; then
-        sed -i "s/^DBPassword=.*/DBPassword=${db_password//&/\\&}/" /etc/zabbix/zabbix_server.conf
-    else
-        printf 'DBPassword=%s\n' "${db_password}" >> /etc/zabbix/zabbix_server.conf
-    fi
+    DB_NAME_VALUE="${DB_NAME}" DB_USER_VALUE="${DB_USER}" DB_PASSWORD_VALUE="${db_password}" python3 - <<'PY'
+from pathlib import Path
+import os
+
+path = Path('/etc/zabbix/zabbix_server.conf')
+text = path.read_text(encoding='utf-8') if path.exists() else ''
+values = {
+    'DBName': os.environ['DB_NAME_VALUE'],
+    'DBUser': os.environ['DB_USER_VALUE'],
+    'DBPassword': os.environ['DB_PASSWORD_VALUE'],
+}
+lines = text.splitlines()
+for key, value in values.items():
+    prefix = key + '='
+    replaced = False
+    for idx, line in enumerate(lines):
+        if line.startswith(prefix):
+            lines[idx] = prefix + value
+            replaced = True
+            break
+    if not replaced:
+        lines.append(prefix + value)
+path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+PY
     chmod 0640 /etc/zabbix/zabbix_server.conf
 
     log "Database import completed with ${table_count} tables."
